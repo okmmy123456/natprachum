@@ -1,0 +1,50 @@
+{
+  "name": "natprachum-tci-backend",
+  "version": "1.0.0",
+  "description": "NatPrachum TCI Meeting Room Booking System - Backend API",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "nodemon",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "seed": "ts-node src/seeders/index.ts"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
+    "express-validator": "^7.2.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.23.2",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^6.9.15",
+    "pdfkit": "^0.15.0",
+    "qrcode": "^1.5.4",
+    "sequelize": "^6.37.8",
+    "tsx": "^4.23.10",
+    "uuid": "^10.0.0",
+    "xlsx": "^0.18.5",
+    "xss": "^1.0.15"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.5.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^6.4.16",
+    "@types/pdfkit": "^0.13.4",
+    "@types/qrcode": "^1.5.5",
+    "@types/uuid": "^10.0.0",
+    "nodemon": "^3.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}

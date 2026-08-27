@@ -1,0 +1,64 @@
+{
+  "navbar": {
+    "title": "ระบบจองห้องประชุม TCI",
+    "profile": "โปรไฟล์",
+    "logout": "ออกจากระบบ"
+  },
+  "sidebar": {
+    "dashboard": "หน้าหลัก",
+    "bookings": "จองห้องประชุม",
+    "calendar": "ปฏิทิน",
+    "approvals": "อนุมัติการจอง",
+    "reports": "รายงาน",
+    "master_data": "ข้อมูลหลัก",
+    "rooms": "ห้องประชุม",
+    "users": "ผู้ใช้งาน",
+    "roles": "สิทธิ์การใช้งาน",
+    "holidays": "วันหยุด",
+    "system_settings": "ตั้งค่าระบบ"
+  },
+  "dashboard": {
+    "title": "หน้าหลัก (Dashboard)",
+    "total_bookings": "การจองทั้งหมด",
+    "pending_approvals": "รออนุมัติ",
+    "cancelled": "ยกเลิกแล้ว",
+    "upcoming_meetings": "การประชุมที่กำลังจะมาถึง",
+    "recent_bookings": "การจองล่าสุด"
+  },
+  "profile": {
+    "title": "โปรไฟล์ของฉัน",
+    "personal_info": "ข้อมูลส่วนตัว",
+    "first_name": "ชื่อ",
+    "last_name": "นามสกุล",
+    "email": "อีเมล",
+    "company": "บริษัท",
+    "department_name": "ชื่อแผนก",
+    "department_code": "รหัสแผนก",
+    "mobile_phone": "เบอร์มือถือ",
+    "office_phone": "เบอร์โต๊ะทำงาน",
+    "save_profile": "บันทึกข้อมูล",
+    "change_password": "เปลี่ยนรหัสผ่าน",
+    "current_password": "รหัสผ่านปัจจุบัน",
+    "new_password": "รหัสผ่านใหม่",
+    "confirm_password": "ยืนยันรหัสผ่านใหม่",
+    "update_password": "อัปเดตรหัสผ่าน"
+  },
+  "booking_form": {
+    "title_new": "สร้างการจองใหม่",
+    "title_edit": "แก้ไขการจอง",
+    "topic": "หัวข้อการประชุม",
+    "room": "ห้องประชุม",
+    "date": "วันที่",
+    "start_time": "เวลาเริ่ม",
+    "end_time": "เวลาสิ้นสุด",
+    "participants": "จำนวนผู้เข้าร่วม",
+    "phone": "เบอร์โทรศัพท์",
+    "purpose": "วัตถุประสงค์",
+    "upcoming": "การจองห้องที่กำลังจัดประชุม",
+    "select_room": "กรุณาเลือกห้องเพื่อดูตาราง",
+    "no_upcoming": "ไม่มีการจองที่กำลังจะมาถึง\nห้องว่างพร้อมใช้งาน!",
+    "save": "บันทึกการเปลี่ยนแปลง",
+    "book": "จองห้อง",
+    "cancel": "ยกเลิก"
+  }
+}

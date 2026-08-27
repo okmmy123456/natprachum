@@ -1,0 +1,64 @@
+{
+  "navbar": {
+    "title": "NatPrachum TCI",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "bookings": "Bookings",
+    "calendar": "Calendar",
+    "approvals": "Approvals",
+    "reports": "Reports",
+    "master_data": "Master Data",
+    "rooms": "Rooms",
+    "users": "Users",
+    "roles": "Roles",
+    "holidays": "Holidays",
+    "system_settings": "System Settings"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "total_bookings": "Total Bookings",
+    "pending_approvals": "Pending Approvals",
+    "cancelled": "Cancelled",
+    "upcoming_meetings": "Upcoming Meetings",
+    "recent_bookings": "Recent Bookings"
+  },
+  "profile": {
+    "title": "My Profile",
+    "personal_info": "Personal Information",
+    "first_name": "First Name",
+    "last_name": "Last Name",
+    "email": "Email",
+    "company": "Company",
+    "department_name": "Department Name",
+    "department_code": "Department Code",
+    "mobile_phone": "Mobile Phone",
+    "office_phone": "Office Phone",
+    "save_profile": "Save Profile",
+    "change_password": "Change Password",
+    "current_password": "Current Password",
+    "new_password": "New Password",
+    "confirm_password": "Confirm New Password",
+    "update_password": "Update Password"
+  },
+  "booking_form": {
+    "title_new": "New Booking",
+    "title_edit": "Edit Booking",
+    "topic": "Topic",
+    "room": "Room",
+    "date": "Date",
+    "start_time": "Start Time",
+    "end_time": "End Time",
+    "participants": "Participants count",
+    "phone": "Phone Number",
+    "purpose": "Purpose",
+    "upcoming": "Upcoming or ongoing reserved time slots",
+    "select_room": "Please select a room to view its schedule",
+    "no_upcoming": "No upcoming bookings.\nThe room is completely free!",
+    "save": "Save Changes",
+    "book": "Book",
+    "cancel": "Cancel"
+  }
+}
