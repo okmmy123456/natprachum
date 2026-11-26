@@ -87,7 +87,7 @@ export default function RegisterPage() {
           Create Account
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Join NatPrachum TCI DEMO today
+          Join NatPrachum TCI today
         </Typography>
       </Box>
 

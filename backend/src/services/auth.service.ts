@@ -47,7 +47,7 @@ export class AuthService {
       include: [{ model: Role, as: 'Role' }],
     });
 
-    if (!user || !user.is_active) {
+    if (!user || !user.is_active || !user.password_hash) {
       throw { statusCode: 401, message: 'Invalid credentials or account is disabled' };
     }
 
@@ -231,6 +231,10 @@ export class AuthService {
     const user = await User.findByPk(userId);
     if (!user) throw { statusCode: 404, message: 'User not found' };
 
+    if (!user.password_hash) {
+      throw { statusCode: 400, message: 'Account is authenticated via SSO and does not have a local password' };
+    }
+
     const validPassword = await bcrypt.compare(currentPassword, user.password_hash);
     if (!validPassword) throw { statusCode: 400, message: 'Current password is incorrect' };
 
@@ -271,5 +275,178 @@ export class AuthService {
       await RefreshToken.update({ is_revoked: true }, { where: { user_id: userId } });
     }
     return { message: 'Logged out successfully' };
+  }
+
+  static getTciConnectConfig() {
+    const authorizeUrl = process.env.TCICONNECT_AUTHORIZE_URL || 'http://172.10.3.106:5009/api/oauth/authorize';
+    const clientId = process.env.TCICONNECT_CLIENT_ID || 'app_natprachum_01';
+    const redirectUri = process.env.TCICONNECT_REDIRECT_URI || 'http://172.10.3.106:5013/auth/callback';
+
+    return {
+      authorizeUrl,
+      clientId,
+      redirectUri,
+    };
+  }
+
+  static async loginWithTciConnect(code: string, redirectUri?: string) {
+    if (!code) {
+      throw { statusCode: 400, message: 'Authorization code is required' };
+    }
+
+    const baseUrl = (process.env.TCICONNECT_URL || 'http://172.10.3.106:5009').replace(/\/+$/, '');
+    const clientId = process.env.TCICONNECT_CLIENT_ID || 'app_natprachum_01';
+    const clientSecret = process.env.TCICONNECT_CLIENT_SECRET || 'secret_natprachum_key_5013';
+    const effectiveRedirectUri = redirectUri || process.env.TCICONNECT_REDIRECT_URI || 'http://172.10.3.106:5013/auth/callback';
+
+    const tokenRes = await fetch(`${baseUrl}/api/oauth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grant_type: 'authorization_code',
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: effectiveRedirectUri,
+      }),
+    });
+
+    const tokenData: any = await tokenRes.json().catch(() => ({}));
+    if (!tokenRes.ok) {
+      throw {
+        statusCode: 400,
+        message: tokenData?.error_description || tokenData?.error || tokenData?.message || 'ไม่สามารถยืนยันสิทธิ์กับ TciConnect ได้',
+      };
+    }
+
+    const tciUser = tokenData?.user || tokenData?.data?.user || tokenData?.data;
+    if (!tciUser || (!tciUser.id && !tciUser.email)) {
+      throw { statusCode: 400, message: 'ไม่พบข้อมูลผู้ใช้ที่ส่งกลับมาจาก TciConnect' };
+    }
+
+    const tciconnectId = String(tciUser.id || '').trim();
+    const email = String(tciUser.email || '').trim().toLowerCase();
+    const rawName = String(tciUser.name || '').trim();
+    const firstName = String(tciUser.firstName || tciUser.first_name || (rawName ? rawName.split(/\s+/)[0] : '') || 'User').slice(0, 100);
+    const lastName = String(tciUser.lastName || tciUser.last_name || (rawName ? rawName.split(/\s+/).slice(1).join(' ') : '') || '').slice(0, 100);
+    const avatarUrl = tciUser.avatarUrl || tciUser.avatar_url || null;
+    const departmentName = tciUser.department_name || null;
+    const departmentCode = tciUser.department_code || null;
+    const mobilePhone = tciUser.mobile_phone || tciUser.phone || null;
+    const officePhone = tciUser.desk_phone || null;
+
+    let user: any = null;
+
+    // 1. Find by tciconnect_id
+    if (tciconnectId) {
+      user = await User.findOne({
+        where: { tciconnect_id: tciconnectId },
+        include: [{ model: Role, as: 'Role' }],
+      });
+    }
+
+    // 2. If not found, match by email
+    if (!user && email) {
+      user = await User.findOne({
+        where: { email },
+        include: [{ model: Role, as: 'Role' }],
+      });
+
+      if (user) {
+        // Link tciconnect_id to existing account
+        await user.update({
+          tciconnect_id: tciconnectId || user.tciconnect_id,
+          first_name: user.first_name || firstName,
+          last_name: user.last_name || lastName,
+          department_name: user.department_name || departmentName,
+          department_code: user.department_code || departmentCode,
+          avatar_url: avatarUrl || user.avatar_url,
+          mobile_phone: user.mobile_phone || mobilePhone,
+          office_phone: user.office_phone || officePhone,
+          email_verified: true,
+        });
+      }
+    }
+
+    // 3. If user still does not exist, Auto-register new user
+    if (!user) {
+      const normalRole = await Role.findOne({ where: { role_code: 'NormalUser' } });
+      const roleId = normalRole ? normalRole.id : 4;
+
+      let baseUsername = email ? email.split('@')[0] : (firstName || 'user');
+      baseUsername = baseUsername.replace(/[^a-zA-Z0-9._-]/g, '').toLowerCase() || 'tciconnect_user';
+
+      let candidateUsername = baseUsername;
+      let counter = 1;
+      while (await User.findOne({ where: { username: candidateUsername }, paranoid: false })) {
+        candidateUsername = `${baseUsername}_${counter++}`;
+      }
+
+      user = await User.create({
+        username: candidateUsername,
+        password_hash: null,
+        first_name: firstName,
+        last_name: lastName,
+        email: email || `${candidateUsername}@tciconnect.local`,
+        email_verified: true,
+        tciconnect_id: tciconnectId || null,
+        role_id: roleId,
+        department_name: departmentName,
+        department_code: departmentCode,
+        mobile_phone: mobilePhone,
+        office_phone: officePhone,
+        avatar_url: avatarUrl,
+        is_active: true,
+      });
+
+      await user.reload({ include: [{ model: Role, as: 'Role' }] });
+    }
+
+    if (!user.is_active) {
+      throw { statusCode: 403, message: 'บัญชีผู้ใช้นี้ถูกระงับการใช้งาน' };
+    }
+
+    const payload: JwtPayload = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role_id: user.role_id,
+      role_name: user.Role?.role_code || 'NormalUser',
+    };
+
+    const accessToken = jwt.sign(payload, jwtConfig.secret, {
+      expiresIn: jwtConfig.expiresIn as any,
+    });
+
+    const refreshToken = jwt.sign(payload, jwtConfig.refreshSecret, {
+      expiresIn: '30d',
+    });
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+    await RefreshToken.create({
+      user_id: user.id,
+      token: refreshToken,
+      expires_at: expiresAt,
+    });
+
+    await user.update({ last_login_at: new Date() });
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role: user.Role?.role_code || 'NormalUser',
+        role_name: user.Role?.role_name || 'Normal User',
+        avatar_url: user.avatar_url,
+        email_verified: user.email_verified,
+        department_name: user.department_name,
+      },
+    };
   }
 }

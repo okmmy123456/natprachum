@@ -1,5 +1,6 @@
-
 'use client';
+
+import DraggableTableContainer from '@/components/common/DraggableTableContainer';
 
 import { useState, useEffect, useCallback } from 'react';
 import { 
@@ -172,7 +173,7 @@ export default function MasterDataPage() {
           {loading ? (
             <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>
           ) : (
-            <TableContainer>
+            <DraggableTableContainer>
               <Table>
                 <TableHead sx={{ backgroundColor: 'background.default' }}>
                   <TableRow>
@@ -220,7 +221,7 @@ export default function MasterDataPage() {
                   )}
                 </TableBody>
               </Table>
-            </TableContainer>
+            </DraggableTableContainer>
           )}
         </Box>
       </Paper>

@@ -16,9 +16,10 @@ export class BookingController {
       const isMyBookings = query.my_bookings === 'true';
       delete query.my_bookings;
       
-      // Filter to user's own bookings if specifically requested or if they are a regular user
+      // Filter to user's own bookings (including guest bookings matching their email)
       if (isMyBookings || (!query.room_id && req.user?.role_name !== 'SuperAdmin' && req.user?.role_name !== 'Admin')) {
-        query.user_id = req.user?.id;
+        query.owner_user_id = req.user?.id;
+        query.owner_email = req.user?.email;
       }
       
       const result = await BookingService.getAll(query);
@@ -41,14 +42,14 @@ export class BookingController {
 
   static async update(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const result = await BookingService.update(parseInt(req.params.id), req.body, req.user?.id, req.user?.role_name);
+      const result = await BookingService.update(parseInt(req.params.id), req.body, req.user?.id, req.user?.role_name, req.user?.email);
       sendSuccess(res, result, 'Booking updated');
     } catch (error: any) { error.statusCode ? sendError(res, error.message, error.statusCode) : next(error); }
   }
 
   static async cancel(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const result = await BookingService.cancel(parseInt(req.params.id), req.body.cancel_reason || '', req.user?.id, req.user?.role_name);
+      const result = await BookingService.cancel(parseInt(req.params.id), req.body.cancel_reason || '', req.user?.id, req.user?.role_name, req.user?.email);
       await logActivity({ user_id: req.user?.id, action: 'CANCEL_BOOKING', module: 'bookings', description: `Cancelled booking ${req.params.id}`, ip_address: getClientIP(req), user_agent: req.headers['user-agent'] });
       sendSuccess(res, result, 'Booking cancelled');
     } catch (error: any) { error.statusCode ? sendError(res, error.message, error.statusCode) : next(error); }
@@ -100,7 +101,7 @@ export class BookingController {
 
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      await BookingService.delete(parseInt(req.params.id), req.user?.id, req.user?.role_name);
+      await BookingService.delete(parseInt(req.params.id), req.user?.id, req.user?.role_name, req.user?.email);
       await logActivity({ user_id: req.user?.id, action: 'DELETE_BOOKING', module: 'bookings', description: `Deleted booking ${req.params.id}`, ip_address: getClientIP(req), user_agent: req.headers['user-agent'] });
       sendSuccess(res, null, 'Booking deleted successfully');
     } catch (error: any) { error.statusCode ? sendError(res, error.message, error.statusCode) : next(error); }

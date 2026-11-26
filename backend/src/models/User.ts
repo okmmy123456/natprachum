@@ -4,7 +4,7 @@ import sequelize from '../config/database';
 interface UserAttributes {
   id: number;
   username: string;
-  password_hash: string;
+  password_hash?: string | null;
   first_name: string;
   last_name: string;
   company_id?: number;
@@ -17,6 +17,7 @@ interface UserAttributes {
   office_phone?: string;
   email: string;
   email_verified: boolean;
+  tciconnect_id?: string | null;
   avatar_url?: string;
   role_id: number;
   is_active: boolean;
@@ -26,12 +27,12 @@ interface UserAttributes {
   deleted_at?: Date;
 }
 
-interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'company_id' | 'site_id' | 'department_id' | 'department_code' | 'department_name' | 'position' | 'mobile_phone' | 'office_phone' | 'email_verified' | 'avatar_url' | 'is_active' | 'last_login_at'> {}
+interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'password_hash' | 'company_id' | 'site_id' | 'department_id' | 'department_code' | 'department_name' | 'position' | 'mobile_phone' | 'office_phone' | 'email_verified' | 'tciconnect_id' | 'avatar_url' | 'is_active' | 'last_login_at'> {}
 
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
   public username!: string;
-  public password_hash!: string;
+  public password_hash?: string | null;
   public first_name!: string;
   public last_name!: string;
   public company_id?: number;
@@ -44,6 +45,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public office_phone?: string;
   public email!: string;
   public email_verified!: boolean;
+  public tciconnect_id?: string | null;
   public avatar_url?: string;
   public role_id!: number;
   public is_active!: boolean;
@@ -63,7 +65,7 @@ User.init(
   {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
     username: { type: DataTypes.STRING(100), allowNull: false, unique: true },
-    password_hash: { type: DataTypes.STRING(255), allowNull: false },
+    password_hash: { type: DataTypes.STRING(255), allowNull: true },
     first_name: { type: DataTypes.STRING(100), allowNull: false },
     last_name: { type: DataTypes.STRING(100), allowNull: false },
     company_id: { type: DataTypes.INTEGER },
@@ -76,6 +78,7 @@ User.init(
     office_phone: { type: DataTypes.STRING(20) },
     email: { type: DataTypes.STRING(200), allowNull: false, unique: true },
     email_verified: { type: DataTypes.BOOLEAN, defaultValue: false },
+    tciconnect_id: { type: DataTypes.STRING(36), allowNull: true, unique: true },
     avatar_url: { type: DataTypes.STRING(500) },
     role_id: { type: DataTypes.INTEGER, allowNull: false },
     is_active: { type: DataTypes.BOOLEAN, defaultValue: true },

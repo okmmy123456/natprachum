@@ -191,3 +191,66 @@ export const sendBookingNotification = async (
     user_id: userId,
   });
 };
+
+export const sendAutoApproveOwnerNotification = async (
+  ownerEmail: string,
+  booking: any,
+  autoApprovedItems: string[],
+  ownerUserId?: number
+): Promise<boolean> => {
+  const roomName = booking.Room?.room_name || '-';
+  const roomLocation = booking.Room?.location ? ` (${booking.Room.location})` : '';
+  const bookerName = booking.is_guest_booking
+    ? `${booking.guest_name || '-'} (Guest)`
+    : `${booking.User?.first_name || ''} ${booking.User?.last_name || ''}`.trim() || '-';
+  const bookerEmail = booking.is_guest_booking ? (booking.guest_email || '-') : (booking.User?.email || '-');
+  const bookerPhone = booking.is_guest_booking
+    ? (booking.guest_phone || '-')
+    : (booking.phone_number || booking.User?.mobile_phone || booking.User?.office_phone || '-');
+  const startTime = String(booking.start_time || '').slice(0, 5);
+  const endTime = String(booking.end_time || '').slice(0, 5);
+  const eqList = Array.isArray(booking.BookingEquipments) && booking.BookingEquipments.length > 0
+    ? booking.BookingEquipments.map((eq: any) => eq.Equipment?.equipment_name || 'ไม่ระบุ').join(', ')
+    : 'ไม่มี';
+
+  const title = `แจ้งเตือนการอนุมัติอัตโนมัติ (เลยกำหนดวันประชุม 3 วัน)`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+        <h1 style="color: white; margin: 0;">NatPrachum TCI</h1>
+        <p style="color: rgba(255,255,255,0.9); margin: 6px 0 0;">ระบบอนุมัติการจองห้องประชุมและอุปกรณ์อัตโนมัติ</p>
+      </div>
+      <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-radius: 0 0 10px 10px;">
+        <h2 style="color: #b45309; margin-top: 0;">${title}</h2>
+        <div style="background: #fffbeb; border: 1px solid #fcd34d; padding: 14px 16px; border-radius: 8px; margin-bottom: 20px; color: #92400e; font-size: 14px; line-height: 1.6;">
+          <strong>สาเหตุ:</strong> เนื่องจากเลยกำหนดวันที่ประชุมมาแล้วเกิน 3 วัน โดยยังไม่ได้ดำเนินการอนุมัติ ระบบจึงทำการ <strong>อนุมัติอัตโนมัติ (Auto-Approved)</strong> ตามเงื่อนไขของระบบ
+        </div>
+
+        <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #10B981; font-size: 14px; line-height: 1.7;">
+          <p style="margin: 4px 0;"><strong>รายการที่ระบบอนุมัติอัตโนมัติ:</strong> <span style="color: #059669; font-weight: bold;">${autoApprovedItems.join(', ')}</span></p>
+          <hr style="border: none; border-top: 1px dashed #d1d5db; margin: 12px 0;" />
+          <p style="margin: 4px 0;"><strong>รหัสการจอง (Booking No):</strong> ${booking.booking_no || '-'}</p>
+          <p style="margin: 4px 0;"><strong>หัวข้อการประชุม:</strong> ${booking.booking_name || '-'}</p>
+          <p style="margin: 4px 0;"><strong>ห้องประชุม:</strong> ${roomName}${roomLocation}</p>
+          <p style="margin: 4px 0;"><strong>วันที่ประชุม:</strong> ${booking.booking_date || '-'}</p>
+          <p style="margin: 4px 0;"><strong>เวลา:</strong> ${startTime} - ${endTime}</p>
+          <p style="margin: 4px 0;"><strong>ผู้จอง:</strong> ${bookerName}</p>
+          <p style="margin: 4px 0;"><strong>อีเมลผู้จอง:</strong> ${bookerEmail}</p>
+          <p style="margin: 4px 0;"><strong>เบอร์โทรศัพท์:</strong> ${bookerPhone}</p>
+          <p style="margin: 4px 0;"><strong>จำนวนผู้เข้าร่วม:</strong> ${booking.participant_count || '-'} คน</p>
+          <p style="margin: 4px 0;"><strong>วัตถุประสงค์:</strong> ${booking.purpose || '-'}</p>
+          <p style="margin: 4px 0;"><strong>อุปกรณ์เสริมที่ขอเพิ่ม:</strong> ${eqList}</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: ownerEmail,
+    subject: `NatPrachum TCI - ${title} [${booking.booking_no}]`,
+    html,
+    type: 'booking_auto_approved',
+    user_id: ownerUserId,
+  });
+};

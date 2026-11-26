@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Booking, BookingStatus, MeetingRoom } from '../models';
+import { Booking, BookingStatus, MeetingRoom, User, FoodOrder, BookingEquipment } from '../models';
 
 export class CalendarService {
   static async getEvents(query: any) {
@@ -29,19 +29,35 @@ export class CalendarService {
     const bookings = await Booking.findAll({
       where,
       include: [
-        { model: MeetingRoom, as: 'Room', attributes: ['id', 'room_name', 'location'], where: Object.keys(roomWhere).length > 0 ? roomWhere : undefined },
+        { 
+          model: MeetingRoom, 
+          as: 'Room', 
+          attributes: ['id', 'room_name', 'location', 'capacity'], 
+          where: Object.keys(roomWhere).length > 0 ? roomWhere : undefined 
+        },
         { model: BookingStatus, as: 'Status' },
+        { 
+          model: User, 
+          as: 'User', 
+          attributes: ['first_name', 'last_name', 'email', 'department_name', 'department_code'] 
+        },
+        { model: FoodOrder, as: 'FoodOrder', attributes: ['id', 'food_status'] },
+        { model: BookingEquipment, as: 'BookingEquipments', attributes: ['id'] },
       ],
       order: [['booking_date', 'ASC'], ['start_time', 'ASC']],
     });
 
     // Transform to calendar events format
-    return bookings.map(b => ({
+    return bookings.map((b: any) => ({
       id: b.id,
       title: `${b.booking_name} - ${b.Room?.room_name || 'Unknown'}`,
+      booking_name: b.booking_name,
+      booking_date: b.booking_date,
+      start_time: b.start_time,
+      end_time: b.end_time,
       start: `${b.booking_date}T${b.start_time}`,
       end: `${b.booking_date}T${b.end_time}`,
-      color: b.Status?.color || '#6B7280',
+      color: b.Status?.color || '#4F46E5',
       extendedProps: {
         booking_no: b.booking_no,
         room_id: b.room_id,
@@ -50,6 +66,10 @@ export class CalendarService {
         status: b.Status?.status_code,
         status_name: b.Status?.status_name,
         participant_count: b.participant_count,
+        organizer: b.User ? `${b.User.first_name} ${b.User.last_name}` : (b.contact_name || 'Guest'),
+        department: b.User?.department_name || b.company_name || '-',
+        has_food: !!b.FoodOrder,
+        has_equipment: b.BookingEquipments && b.BookingEquipments.length > 0,
       },
     }));
   }

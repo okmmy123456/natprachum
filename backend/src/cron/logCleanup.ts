@@ -4,8 +4,21 @@ import ActivityLog from '../models/ActivityLog';
 import AuditLog from '../models/AuditLog';
 import EmailLog from '../models/EmailLog';
 import Notification from '../models/Notification';
+import { ApprovalService } from '../services/approval.service';
 
 export const setupCronJobs = () => {
+  // Run auto-approval check for overdue bookings (> 3 days past meeting date) every hour and once on startup
+  setTimeout(() => {
+    ApprovalService.autoApproveOverdueBookings(3).catch(err =>
+      console.error('[CRON] Initial auto-approve check failed:', err)
+    );
+  }, 5000);
+
+  cron.schedule('0 * * * *', async () => {
+    console.log('[CRON] Checking overdue pending bookings/equipment (> 3 days)...');
+    await ApprovalService.autoApproveOverdueBookings(3);
+  });
+
   // Run every day at midnight
   cron.schedule('0 0 * * *', async () => {
     console.log('[CRON] Running log cleanup job...');

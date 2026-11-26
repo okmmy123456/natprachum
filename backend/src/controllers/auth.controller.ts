@@ -110,4 +110,32 @@ export class AuthController {
       next(error);
     }
   }
+
+  static async getTciConnectConfig(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const config = AuthService.getTciConnectConfig();
+      sendSuccess(res, config, 'TciConnect config');
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  static async tciConnectCallback(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { code, redirect_uri } = req.body;
+      const result = await AuthService.loginWithTciConnect(code, redirect_uri);
+      await logActivity({
+        user_id: result.user.id,
+        action: 'LOGIN_TCICONNECT',
+        module: 'auth',
+        description: `User ${result.user.username} logged in via TciConnect SSO`,
+        ip_address: getClientIP(req),
+        user_agent: req.headers['user-agent'],
+      });
+      sendSuccess(res, result, 'Login via TciConnect successful');
+    } catch (error: any) {
+      if (error.statusCode) return sendError(res, error.message, error.statusCode);
+      next(error);
+    }
+  }
 }

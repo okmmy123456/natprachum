@@ -1,7 +1,9 @@
 'use client';
+
+import DraggableTableContainer from '@/components/common/DraggableTableContainer';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   Box, Button, Typography, Paper, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, Chip, CircularProgress,
@@ -9,7 +11,7 @@ import {
   FormControl, InputLabel, Select, MenuItem, Grid, IconButton, Tooltip,
   FormControlLabel, Checkbox, Divider, Collapse, RadioGroup, Radio,
   FormLabel, Accordion, AccordionSummary, AccordionDetails, ListItemText, TablePagination,
-  Tabs, Tab
+  Tabs, Tab, TableSortLabel
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -83,8 +85,44 @@ export default function BookingsPage() {
     start_time: searchParams.get('start') || '',
     end_time: searchParams.get('end') || '',
     purpose: '',
-    phone_number: ''
+    phone_number: '',
+    link_training_system: false
   });
+  const [isMultiDay, setIsMultiDay] = useState(false);
+  const [endDate, setEndDate] = useState('');
+  const [skipWeekends, setSkipWeekends] = useState(true);
+
+  const selectedDatesPreview = useMemo(() => {
+    if (!isMultiDay || !formData.booking_date || !endDate || endDate < formData.booking_date) return [];
+    const start = dayjs(formData.booking_date);
+    const end = dayjs(endDate);
+    const diff = end.diff(start, 'day');
+    if (diff < 0 || diff > 31) return [];
+    const dates: { dateStr: string; label: string }[] = [];
+    const dayNames = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+    for (let i = 0; i <= diff; i++) {
+      const cur = start.add(i, 'day');
+      const dow = cur.day();
+      if (diff > 0 && skipWeekends && (dow === 0 || dow === 6)) continue;
+      dates.push({
+        dateStr: cur.format('YYYY-MM-DD'),
+        label: `${dayNames[dow]} ${cur.format('DD/MM')}`,
+      });
+    }
+    return dates;
+  }, [isMultiDay, formData.booking_date, endDate, skipWeekends]);
+
+  const handleSelectMonFri = () => {
+    const base = formData.booking_date ? dayjs(formData.booking_date) : dayjs();
+    const dow = base.day();
+    const diffToMon = dow === 0 ? -6 : 1 - dow;
+    const mon = base.add(diffToMon, 'day').format('YYYY-MM-DD');
+    const fri = base.add(diffToMon + 4, 'day').format('YYYY-MM-DD');
+    setIsMultiDay(true);
+    setSkipWeekends(true);
+    setFormData((prev) => ({ ...prev, booking_date: mon }));
+    setEndDate(fri);
+  };
 
   useEffect(() => {
     if (searchParams.get('new') === 'true') {
@@ -143,6 +181,83 @@ export default function BookingsPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  // Sorting state
+  type Order = 'asc' | 'desc';
+  type SortField = 'booking_no' | 'booker' | 'room' | 'booking_name' | 'booking_date' | 'start_time' | 'status' | 'food' | 'equipment';
+
+  const [orderBy, setOrderBy] = useState<SortField>('booking_date');
+  const [order, setOrder] = useState<Order>('desc');
+
+  const handleRequestSort = (property: SortField) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+
+  const sortedBookings = useMemo(() => {
+    const comparator = (a: any, b: any) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      switch (orderBy) {
+        case 'booking_no':
+          valA = a.booking_no || '';
+          valB = b.booking_no || '';
+          break;
+        case 'booker':
+          valA = a.is_guest_booking
+            ? `${a.guest_name || ''} (Guest)`
+            : `${a.User?.first_name || ''} ${a.User?.last_name || ''}`.trim() || 'Unknown';
+          valB = b.is_guest_booking
+            ? `${b.guest_name || ''} (Guest)`
+            : `${b.User?.first_name || ''} ${b.User?.last_name || ''}`.trim() || 'Unknown';
+          break;
+        case 'room':
+          valA = a.Room?.room_name || '';
+          valB = b.Room?.room_name || '';
+          break;
+        case 'booking_name':
+          valA = a.booking_name || '';
+          valB = b.booking_name || '';
+          break;
+        case 'booking_date':
+          valA = `${a.booking_date || ''} ${a.start_time || ''}`;
+          valB = `${b.booking_date || ''} ${b.start_time || ''}`;
+          break;
+        case 'start_time':
+          valA = a.start_time || '';
+          valB = b.start_time || '';
+          break;
+        case 'status':
+          valA = a.Status?.status_name || a.Status?.status_code || '';
+          valB = b.Status?.status_name || b.Status?.status_code || '';
+          break;
+        case 'food':
+          valA = a.FoodOrder?.food_status || (a.FoodOrder ? 'ordered' : '');
+          valB = b.FoodOrder?.food_status || (b.FoodOrder ? 'ordered' : '');
+          break;
+        case 'equipment':
+          valA = a.equipment_status || (a.BookingEquipments?.length ? 'requested' : '');
+          valB = b.equipment_status || (b.BookingEquipments?.length ? 'requested' : '');
+          break;
+        default:
+          valA = a[orderBy] || '';
+          valB = b[orderBy] || '';
+      }
+
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        const cmp = valA.localeCompare(valB, 'th', { numeric: true, sensitivity: 'base' });
+        return order === 'asc' ? cmp : -cmp;
+      }
+
+      if (valA < valB) return order === 'asc' ? -1 : 1;
+      if (valA > valB) return order === 'asc' ? 1 : -1;
+      return 0;
+    };
+
+    return [...bookings].sort(comparator);
+  }, [bookings, order, orderBy]);
+
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -198,9 +313,9 @@ export default function BookingsPage() {
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      let params = {};
-      if (currentTab === 'my_bookings') params = { my_bookings: 'true' };
-      if (currentTab === 'guest_bookings') params = { is_guest_booking: 'true' };
+      const params: any = { limit: 2000 };
+      if (currentTab === 'my_bookings') params.my_bookings = 'true';
+      if (currentTab === 'guest_bookings') params.is_guest_booking = 'true';
       
       const res = await api.get<any, any>('/bookings', { params });
       if (res.success) {
@@ -236,6 +351,11 @@ export default function BookingsPage() {
         participant_count: Number(formData.participant_count),
         additional_equipments: additionalEquipments.map(Number)
       };
+
+      if (!editId && isMultiDay && endDate) {
+        payload.end_date = endDate;
+        payload.skip_weekends = skipWeekends;
+      }
 
       if (hasFoodOrder) {
         payload.food_order = {
@@ -301,6 +421,9 @@ export default function BookingsPage() {
     if (booking) {
       setEditId(booking.id);
       setEditStatus(booking.Status?.status_code || null);
+      setIsMultiDay(false);
+      setEndDate('');
+      setSkipWeekends(true);
       setFormData({
         booking_name: booking.booking_name,
         room_id: booking.room_id.toString(),
@@ -309,7 +432,8 @@ export default function BookingsPage() {
         start_time: booking.start_time.slice(0, 5),
         end_time: booking.end_time.slice(0, 5),
         purpose: booking.purpose || '',
-        phone_number: booking.phone_number || ''
+        phone_number: booking.phone_number || '',
+        link_training_system: Boolean(booking.link_training_system)
       });
       
       setAdditionalEquipments(booking.BookingEquipments ? booking.BookingEquipments.map((e: any) => e.equipment_id.toString()) : []);
@@ -358,7 +482,10 @@ export default function BookingsPage() {
     } else {
       setEditId(null);
       setEditStatus(null);
-      setFormData({ booking_name: '', room_id: '', participant_count: '', booking_date: '', start_time: '', end_time: '', purpose: '', phone_number: '' });
+      setIsMultiDay(false);
+      setEndDate('');
+      setSkipWeekends(true);
+      setFormData({ booking_name: '', room_id: '', participant_count: '', booking_date: '', start_time: '', end_time: '', purpose: '', phone_number: '', link_training_system: false });
       setAdditionalEquipments([]);
       setSelectedLocation('All');
       resetFoodForm();
@@ -582,19 +709,91 @@ export default function BookingsPage() {
         </Box>
       )}
 
-      <TableContainer component={Paper} elevation={2} sx={{ borderRadius: 2 }}>
+      <DraggableTableContainer component={Paper} elevation={2} sx={{ borderRadius: 2 }}>
         <Table>
           <TableHead sx={{ backgroundColor: 'background.default' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Booking No</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>ชื่อผู้จอง</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Room</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t('booking_form.topic')}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t('booking_form.date')}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t('booking_form.start_time')}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>อาหาร</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>อุปกรณ์</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>
+                <TableSortLabel
+                  active={orderBy === 'booking_no'}
+                  direction={orderBy === 'booking_no' ? order : 'asc'}
+                  onClick={() => handleRequestSort('booking_no')}
+                >
+                  Booking No
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>
+                <TableSortLabel
+                  active={orderBy === 'booker'}
+                  direction={orderBy === 'booker' ? order : 'asc'}
+                  onClick={() => handleRequestSort('booker')}
+                >
+                  ชื่อผู้จอง
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>
+                <TableSortLabel
+                  active={orderBy === 'room'}
+                  direction={orderBy === 'room' ? order : 'asc'}
+                  onClick={() => handleRequestSort('room')}
+                >
+                  Room
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>
+                <TableSortLabel
+                  active={orderBy === 'booking_name'}
+                  direction={orderBy === 'booking_name' ? order : 'asc'}
+                  onClick={() => handleRequestSort('booking_name')}
+                >
+                  {t('booking_form.topic')}
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>
+                <TableSortLabel
+                  active={orderBy === 'booking_date'}
+                  direction={orderBy === 'booking_date' ? order : 'asc'}
+                  onClick={() => handleRequestSort('booking_date')}
+                >
+                  {t('booking_form.date')}
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>
+                <TableSortLabel
+                  active={orderBy === 'start_time'}
+                  direction={orderBy === 'start_time' ? order : 'asc'}
+                  onClick={() => handleRequestSort('start_time')}
+                >
+                  {t('booking_form.start_time')}
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>
+                <TableSortLabel
+                  active={orderBy === 'status'}
+                  direction={orderBy === 'status' ? order : 'asc'}
+                  onClick={() => handleRequestSort('status')}
+                >
+                  Status
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>
+                <TableSortLabel
+                  active={orderBy === 'food'}
+                  direction={orderBy === 'food' ? order : 'asc'}
+                  onClick={() => handleRequestSort('food')}
+                >
+                  อาหาร
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>
+                <TableSortLabel
+                  active={orderBy === 'equipment'}
+                  direction={orderBy === 'equipment' ? order : 'asc'}
+                  onClick={() => handleRequestSort('equipment')}
+                >
+                  อุปกรณ์
+                </TableSortLabel>
+              </TableCell>
               <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -612,7 +811,7 @@ export default function BookingsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              bookings.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((booking) => (
+              sortedBookings.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((booking) => (
                 <TableRow key={booking.id} hover>
                   <TableCell>{booking.booking_no}</TableCell>
                   <TableCell>
@@ -717,7 +916,7 @@ export default function BookingsPage() {
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </DraggableTableContainer>
 
       <TablePagination
         rowsPerPageOptions={[10, 25, 50]}
@@ -836,20 +1035,106 @@ export default function BookingsPage() {
             })()}
 
             <LocalizationProvider dateAdapter={AdapterDayjs}>
+              {!editId && (
+                <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(25, 118, 210, 0.04)', borderColor: 'primary.light', borderRadius: 2 }}>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={isMultiDay}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setIsMultiDay(checked);
+                            if (checked && !endDate && formData.booking_date) {
+                              setEndDate(formData.booking_date);
+                            }
+                          }}
+                          color="primary"
+                        />
+                      }
+                      label={
+                        <Typography sx={{ fontWeight: 600, color: 'primary.main' }}>
+                          จองต่อเนื่องหลายวัน (เช่น จันทร์ - ศุกร์)
+                        </Typography>
+                      }
+                    />
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                      onClick={handleSelectMonFri}
+                      sx={{ fontWeight: 600 }}
+                    >
+                      เลือก จันทร์ - ศุกร์ (สัปดาห์นี้/ที่เลือก)
+                    </Button>
+                  </Box>
+
+                  <Collapse in={isMultiDay}>
+                    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={skipWeekends}
+                            onChange={(e) => setSkipWeekends(e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label={<Typography variant="body2">เฉพาะวันทำการ (ข้ามวันเสาร์ - อาทิตย์)</Typography>}
+                      />
+                      {selectedDatesPreview.length > 0 && (
+                        <Box sx={{ mt: 1 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
+                            จะสร้างใบจองทั้งหมด {selectedDatesPreview.length} วัน (เวลาเดียวกันทุกวัน):
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {selectedDatesPreview.map((d) => (
+                              <Chip key={d.dateStr} label={d.label} size="small" color="primary" variant="outlined" />
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
+                    </Box>
+                  </Collapse>
+                </Paper>
+              )}
+
               <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 4 }}>
+                <Grid size={{ xs: 12, sm: (!editId && isMultiDay) ? 3 : 4 }}>
                   <TextField 
-                    label={t('booking_form.date')} 
+                    label={(!editId && isMultiDay) ? 'ตั้งแต่วันที่ (Start Date)' : t('booking_form.date')} 
                     type="date" 
                     slotProps={{ inputLabel: { shrink: true } }} 
                     fullWidth 
                     required
                     disabled={editStatus === 'approved'}
                     value={formData.booking_date}
-                    onChange={(e) => setFormData({...formData, booking_date: e.target.value})}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({...formData, booking_date: val});
+                      if (isMultiDay && (!endDate || endDate < val)) {
+                        setEndDate(val);
+                      }
+                    }}
                   />
                 </Grid>
-                <Grid size={{ xs: 6, sm: 4 }}>
+                {!editId && isMultiDay && (
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <TextField
+                      label="ถึงวันที่ (End Date)"
+                      type="date"
+                      slotProps={{
+                        inputLabel: { shrink: true },
+                        htmlInput: { min: formData.booking_date || undefined }
+                      }}
+                      fullWidth
+                      required
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </Grid>
+                )}
+                <Grid size={{ xs: 6, sm: (!editId && isMultiDay) ? 3 : 4 }}>
                   <TimePicker
                     label={t('booking_form.start_time')}
                     ampm={false}
@@ -862,7 +1147,7 @@ export default function BookingsPage() {
                     slotProps={{ textField: { fullWidth: true, required: true, disabled: false } }}
                   />
                 </Grid>
-                <Grid size={{ xs: 6, sm: 4 }}>
+                <Grid size={{ xs: 6, sm: (!editId && isMultiDay) ? 3 : 4 }}>
                   <TimePicker
                     label={t('booking_form.end_time')}
                     ampm={false}
@@ -901,6 +1186,23 @@ export default function BookingsPage() {
                 value={formData.purpose}
               onChange={(e) => setFormData({...formData, purpose: e.target.value})}
             />
+
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(25, 118, 210, 0.04)', borderColor: 'primary.light', borderRadius: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={Boolean((formData as any).link_training_system)}
+                    onChange={(e) => setFormData({ ...formData, link_training_system: e.target.checked } as any)}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography sx={{ fontWeight: 600, color: 'primary.main' }}>
+                    เชื่อมต่อกับระบบ Training System (สร้างหัวข้อการประชุมสำหรับเช็คชื่ออัตโนมัติ)
+                  </Typography>
+                }
+              />
+            </Paper>
 
               <>
                 <Divider sx={{ my: 1 }} />

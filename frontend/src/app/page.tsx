@@ -91,8 +91,9 @@ export default function Home() {
       }}
     >
       <Container maxWidth="md" sx={{ textAlign: 'center' }}>
+        <Box component="img" src="/favicon.svg" alt="NatPrachum Logo" sx={{ width: 88, height: 88, mb: 2, filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.25))' }} />
         <Typography variant="h1" sx={{ mb: 3, fontWeight: 800 }}>
-          NatPrachum TCI DEMO
+          NatPrachum TCI
         </Typography>
         <Typography variant="h4" sx={{ mb: 6, fontWeight: 400, opacity: 0.9 }}>
           The intelligent way to manage and book your meeting rooms.

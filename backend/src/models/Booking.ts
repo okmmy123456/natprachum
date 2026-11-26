@@ -16,6 +16,7 @@ interface BookingAttributes {
   additional_note?: string;
   status_id: number;
   is_guest_booking: boolean;
+  link_training_system?: boolean;
   guest_name?: string;
   guest_email?: string;
   guest_phone?: string;
@@ -52,6 +53,7 @@ class Booking extends Model<BookingAttributes, BookingCreationAttributes> implem
   public additional_note?: string;
   public status_id!: number;
   public is_guest_booking!: boolean;
+  public link_training_system?: boolean;
   public guest_name?: string;
   public guest_email?: string;
   public guest_phone?: string;
@@ -94,6 +96,7 @@ Booking.init(
     additional_note: { type: DataTypes.TEXT },
     status_id: { type: DataTypes.INTEGER, allowNull: false },
     is_guest_booking: { type: DataTypes.BOOLEAN, defaultValue: false },
+    link_training_system: { type: DataTypes.BOOLEAN, defaultValue: false },
     guest_name: { type: DataTypes.STRING(150) },
     guest_email: { type: DataTypes.STRING(150) },
     guest_phone: { type: DataTypes.STRING(20) },

@@ -1,5 +1,7 @@
 'use client';
 
+import DraggableTableContainer from '@/components/common/DraggableTableContainer';
+
 import React, { useState, useEffect } from 'react';
 import { 
   Box, Typography, Paper, Table, TableBody, TableCell, 
@@ -141,7 +143,7 @@ export default function SystemLogsPage() {
           />
         </Box>
 
-        <TableContainer>
+        <DraggableTableContainer>
           <Table sx={{ minWidth: 750 }}>
             <TableHead sx={{ backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#f8fafc' }}>
               <TableRow>
@@ -217,7 +219,7 @@ export default function SystemLogsPage() {
               )}
             </TableBody>
           </Table>
-        </TableContainer>
+        </DraggableTableContainer>
         <TablePagination
           rowsPerPageOptions={[10, 25, 50, 100]}
           component="div"

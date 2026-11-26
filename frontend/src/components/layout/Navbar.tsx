@@ -63,6 +63,7 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
         </IconButton>
         
         <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
+          <Box component="img" src="/favicon.svg" alt="Logo" sx={{ width: 32, height: 32, mr: 1.5, borderRadius: 1 }} />
           <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700, color: 'primary.main' }}>
             {t('navbar.title', 'NatPrachum TCI')}
           </Typography>

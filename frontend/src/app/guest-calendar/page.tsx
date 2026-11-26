@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, Suspense } from 'react';
-import { Box, Typography, Container, Paper, CircularProgress, Popover, Button, Grid, Card, CardActionArea, CardMedia, Tooltip, Alert } from '@mui/material';
+import { Box, Typography, Container, Paper, CircularProgress, Popover, Button, Grid, Card, CardActionArea, CardMedia, Tooltip, Alert, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api, { BASE_URL } from '@/services/api';
 import FullCalendar from '@fullcalendar/react';
@@ -10,6 +10,9 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ViewWeekIcon from '@mui/icons-material/ViewWeek';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import ResourceTimeline from '@/components/calendar/ResourceTimeline';
 
 function GuestCalendarContent() {
   const [events, setEvents] = useState<any[]>([]);
@@ -21,8 +24,12 @@ function GuestCalendarContent() {
   const [popoverContent, setPopoverContent] = useState<any>(null);
   const [bookingSelection, setBookingSelection] = useState<{ start: Date | null, end: Date | null }>({ start: null, end: null });
   const [isSplitView, setIsSplitView] = useState(false);
+  const [viewMode, setViewMode] = useState<'timeline' | 'calendar'>('timeline');
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const searchParams = useSearchParams();
   const location = searchParams.get('location');
+  const [selectedLocation, setSelectedLocation] = useState<string>(location || 'All');
+  const locations = Array.from(new Set(rooms.map(r => r.location).filter(Boolean))) as string[];
   const router = useRouter();
 
   useEffect(() => {
@@ -69,7 +76,41 @@ function GuestCalendarContent() {
               ตารางคิวห้องประชุม (Guest Calendar) {location ? `- ${location}` : ''}
             </Typography>
           </Box>
+
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={(_, val) => val && setViewMode(val)}
+            size="small"
+            sx={{ bgcolor: 'background.paper' }}
+          >
+            <ToggleButton value="timeline" sx={{ px: 2, py: 0.5, fontWeight: 600 }}>
+              <ViewWeekIcon fontSize="small" sx={{ mr: 1 }} />
+              Timeline รายห้อง (ใหม่)
+            </ToggleButton>
+            <ToggleButton value="calendar" sx={{ px: 2, py: 0.5, fontWeight: 600 }}>
+              <CalendarMonthIcon fontSize="small" sx={{ mr: 1 }} />
+              ปฏิทินแบบเดิม
+            </ToggleButton>
+          </ToggleButtonGroup>
         </Box>
+
+        {viewMode === 'timeline' ? (
+          <ResourceTimeline 
+            rooms={rooms}
+            events={events}
+            currentDate={currentDate}
+            onDateChange={setCurrentDate}
+            selectedLocation={selectedLocation}
+            onLocationChange={(loc) => {
+              setSelectedLocation(loc);
+              setSelectedRoomId(null);
+            }}
+            locations={locations}
+            isGuest={true}
+          />
+        ) : (
+          <>
 
         <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>💡 วิธีการจองห้องประชุม:</Typography>
@@ -298,7 +339,7 @@ function GuestCalendarContent() {
                       }} 
                       onClick={(e) => {
                         e.stopPropagation();
-                        let url = `/booking?room_id=${r.id}`;
+                        let url = `/booking?room_id=${r.id}&roomId=${r.id}`;
                         if (bookingSelection.start && bookingSelection.end) {
                           // Adjust for timezone locally
                           const year = bookingSelection.start.getFullYear();
@@ -364,6 +405,8 @@ function GuestCalendarContent() {
           </Grid>
           )}
         </Grid>
+        </>
+      )}
       </Container>
     </Box>
   );

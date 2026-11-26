@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   Box, Button, Typography, Paper, TextField, CircularProgress, 
@@ -34,7 +34,7 @@ const emptyDinerRow = (): DinerRow => ({ diner_name: '', company: '', department
 function BookingForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const roomId = searchParams.get('room_id');
+  const roomId = searchParams.get('room_id') || searchParams.get('roomId');
   const editId = searchParams.get('edit');
   const isEditing = !!editId;
 
@@ -62,8 +62,44 @@ function BookingForm() {
     booking_date: searchParams.get('date') || new Date().toLocaleDateString('en-CA'),
     start_time: searchParams.get('start') || '',
     end_time: searchParams.get('end') || '',
-    purpose: ''
+    purpose: '',
+    link_training_system: false
   });
+  const [isMultiDay, setIsMultiDay] = useState(false);
+  const [endDate, setEndDate] = useState('');
+  const [skipWeekends, setSkipWeekends] = useState(true);
+
+  const selectedDatesPreview = useMemo(() => {
+    if (!isMultiDay || !formData.booking_date || !endDate || endDate < formData.booking_date) return [];
+    const start = dayjs(formData.booking_date);
+    const end = dayjs(endDate);
+    const diff = end.diff(start, 'day');
+    if (diff < 0 || diff > 31) return [];
+    const dates: { dateStr: string; label: string }[] = [];
+    const dayNames = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+    for (let i = 0; i <= diff; i++) {
+      const cur = start.add(i, 'day');
+      const dow = cur.day();
+      if (diff > 0 && skipWeekends && (dow === 0 || dow === 6)) continue;
+      dates.push({
+        dateStr: cur.format('YYYY-MM-DD'),
+        label: `${dayNames[dow]} ${cur.format('DD/MM')}`,
+      });
+    }
+    return dates;
+  }, [isMultiDay, formData.booking_date, endDate, skipWeekends]);
+
+  const handleSelectMonFri = () => {
+    const base = formData.booking_date ? dayjs(formData.booking_date) : dayjs();
+    const dow = base.day();
+    const diffToMon = dow === 0 ? -6 : 1 - dow;
+    const mon = base.add(diffToMon, 'day').format('YYYY-MM-DD');
+    const fri = base.add(diffToMon + 4, 'day').format('YYYY-MM-DD');
+    setIsMultiDay(true);
+    setSkipWeekends(true);
+    setFormData((prev) => ({ ...prev, booking_date: mon }));
+    setEndDate(fri);
+  };
   const [requestFood, setRequestFood] = useState(false);
   const [foodForm, setFoodForm] = useState({
     company_name: 'THONGCHAI INDUSTRIES CO., LTD.',
@@ -181,6 +217,7 @@ function BookingForm() {
           start_time: b.start_time?.substring(0, 5) || '',
           end_time: b.end_time?.substring(0, 5) || '',
           purpose: b.purpose || '',
+          link_training_system: Boolean(b.link_training_system),
           additional_equipments: b.BookingEquipments?.map((eq: any) => String(eq.equipment_id)) || []
         });
 
@@ -294,6 +331,11 @@ function BookingForm() {
         participant_count: parseInt(formData.participant_count),
         additional_equipments: formData.additional_equipments.map(Number)
       };
+
+      if (!isEditing && isMultiDay && endDate) {
+        payload.end_date = endDate;
+        payload.skip_weekends = skipWeekends;
+      }
 
       if (requestFood) {
         payload.food_order = {
@@ -485,7 +527,21 @@ function BookingForm() {
               <Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>Booking Details</Typography>
                 
-                {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+                {error && (
+                  <Alert 
+                    severity="error" 
+                    sx={{ mb: 3 }}
+                    action={
+                      error.includes('No room specified') ? (
+                        <Button color="inherit" size="small" onClick={() => router.push('/guest-calendar')}>
+                          เลือกห้องประชุม
+                        </Button>
+                      ) : undefined
+                    }
+                  >
+                    {error === 'No room specified.' ? 'ยังไม่ได้ระบุห้องประชุม กรุณาเลือกห้องประชุมจากตารางก่อนทำรายการ' : error}
+                  </Alert>
+                )}
                 
                 <form onSubmit={handleSubmit}>
 <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -532,10 +588,106 @@ function BookingForm() {
                 <Grid size={{ xs: 12 }}>
                   <TextField fullWidth label="Meeting Title" name="booking_name" required value={formData.booking_name} onChange={handleChange} />
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField fullWidth label="Date" type="date" name="booking_date" slotProps={{ inputLabel: { shrink: true } }} required value={formData.booking_date} onChange={handleChange} />
+                {!isEditing && (
+                  <Grid size={{ xs: 12 }}>
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(25, 118, 210, 0.04)', borderColor: 'primary.light', borderRadius: 2 }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={isMultiDay}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setIsMultiDay(checked);
+                                if (checked && !endDate && formData.booking_date) {
+                                  setEndDate(formData.booking_date);
+                                }
+                              }}
+                              color="primary"
+                            />
+                          }
+                          label={
+                            <Typography sx={{ fontWeight: 600, color: 'primary.main' }}>
+                              จองต่อเนื่องหลายวัน (เช่น จันทร์ - ศุกร์)
+                            </Typography>
+                          }
+                        />
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="primary"
+                          onClick={handleSelectMonFri}
+                          sx={{ fontWeight: 600 }}
+                        >
+                          เลือก จันทร์ - ศุกร์ (สัปดาห์นี้/ที่เลือก)
+                        </Button>
+                      </Box>
+
+                      <Collapse in={isMultiDay}>
+                        <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                size="small"
+                                checked={skipWeekends}
+                                onChange={(e) => setSkipWeekends(e.target.checked)}
+                                color="primary"
+                              />
+                            }
+                            label={<Typography variant="body2">เฉพาะวันทำการ (ข้ามวันเสาร์ - อาทิตย์)</Typography>}
+                          />
+                          {selectedDatesPreview.length > 0 && (
+                            <Box sx={{ mt: 1 }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
+                                จะสร้างใบจองทั้งหมด {selectedDatesPreview.length} วัน (เวลาเดียวกันทุกวัน):
+                              </Typography>
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selectedDatesPreview.map((d) => (
+                                  <Chip key={d.dateStr} label={d.label} size="small" color="primary" variant="outlined" />
+                                ))}
+                              </Box>
+                            </Box>
+                          )}
+                        </Box>
+                      </Collapse>
+                    </Paper>
+                  </Grid>
+                )}
+                <Grid size={{ xs: 12, md: (!isEditing && isMultiDay) ? 3 : 4 }}>
+                  <TextField
+                    fullWidth
+                    label={(!isEditing && isMultiDay) ? 'ตั้งแต่วันที่ (Start Date)' : 'Date'}
+                    type="date"
+                    name="booking_date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    required
+                    value={formData.booking_date}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, booking_date: val });
+                      if (isMultiDay && (!endDate || endDate < val)) {
+                        setEndDate(val);
+                      }
+                    }}
+                  />
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
+                {!isEditing && isMultiDay && (
+                  <Grid size={{ xs: 12, md: 3 }}>
+                    <TextField
+                      fullWidth
+                      label="ถึงวันที่ (End Date)"
+                      type="date"
+                      slotProps={{
+                        inputLabel: { shrink: true },
+                        htmlInput: { min: formData.booking_date || undefined }
+                      }}
+                      required
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </Grid>
+                )}
+                <Grid size={{ xs: 12, md: (!isEditing && isMultiDay) ? 3 : 4 }}>
                   <TimePicker
                     label="Start Time"
                     ampm={false}
@@ -548,7 +700,7 @@ function BookingForm() {
                     slotProps={{ textField: { fullWidth: true, required: true, disabled: false } }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid size={{ xs: 12, md: (!isEditing && isMultiDay) ? 3 : 4 }}>
                   <TimePicker
                     label="End Time"
                     ampm={false}
@@ -566,6 +718,24 @@ function BookingForm() {
                 </Grid>
                 <Grid size={{ xs: 12, md: 8 }}>
                   <TextField fullWidth multiline rows={3} label="Purpose" name="purpose" value={formData.purpose} onChange={handleChange} />
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(25, 118, 210, 0.04)', borderColor: 'primary.light', borderRadius: 2 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={Boolean((formData as any).link_training_system)}
+                          onChange={(e) => setFormData({ ...formData, link_training_system: e.target.checked } as any)}
+                          color="primary"
+                        />
+                      }
+                      label={
+                        <Typography sx={{ fontWeight: 600, color: 'primary.main' }}>
+                          เชื่อมต่อกับระบบ Training System (สร้างหัวข้อการประชุมสำหรับเช็คชื่ออัตโนมัติ)
+                        </Typography>
+                      }
+                    />
+                  </Paper>
                 </Grid>
                 
                 <Grid size={{ xs: 12 }}>

@@ -1,15 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import DraggableTableContainer from '@/components/common/DraggableTableContainer';
+
+import { useEffect, useState, useCallback } from 'react';
 import { Switch, FormControlLabel, 
   Box, Button, Typography, Paper, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, IconButton, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Select, MenuItem, FormControl, InputLabel, CircularProgress
+  Select, MenuItem, FormControl, InputLabel, CircularProgress,
+  TablePagination, InputAdornment
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import MainLayout from '@/components/layout/MainLayout';
 import api from '@/services/api';
 
@@ -20,17 +24,16 @@ export default function UsersPage() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [roles, setRoles] = useState<any[]>([]);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [search, setSearch] = useState('');
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
     email: '', is_active: true,
     role_id: ''
   });
-
-  useEffect(() => {
-    fetchUsers();
-    fetchRoles();
-  }, []);
 
   const fetchRoles = async () => {
     try {
@@ -39,19 +42,35 @@ export default function UsersPage() {
     } catch (error) { console.error('Failed to fetch roles', error); }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async (currentPage: number, currentLimit: number, currentSearch: string) => {
     try {
       setLoading(true);
-      const res = await api.get<any, any>('/users');
+      const params = new URLSearchParams({
+        page: (currentPage + 1).toString(),
+        limit: currentLimit.toString(),
+      });
+      if (currentSearch.trim()) {
+        params.append('search', currentSearch.trim());
+      }
+      const res = await api.get<any, any>(`/users?${params.toString()}`);
       if (res.success) {
-        setUsers(res.data);
+        setUsers(res.data || []);
+        setTotalUsers(res.meta?.total ?? (res.data?.length || 0));
       }
     } catch (error) {
       console.error('Failed to fetch users', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchUsers(page, rowsPerPage, search);
+  }, [fetchUsers, page, rowsPerPage, search]);
+
+  useEffect(() => {
+    fetchRoles();
+  }, []);
 
   const handleEdit = (user: any) => {
     setEditingId(user.id);
@@ -82,7 +101,7 @@ export default function UsersPage() {
 
       if (updateRes.success) {
         setOpenDialog(false);
-        fetchUsers();
+        fetchUsers(page, rowsPerPage, search);
       }
     } catch (error: any) {
       alert(error.message || 'Failed to update user');
@@ -93,20 +112,45 @@ export default function UsersPage() {
 
   return (
     <MainLayout>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h4" sx={{ fontWeight: 700 }}>
           User Management
         </Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />}
-          onClick={() => setOpenDialog(true)}
-        >
-          Add User
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <TextField
+            size="small"
+            placeholder="Search name, username, email..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ width: { xs: '100%', sm: 280 } }}
+          />
+          <Button 
+            variant="contained" 
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setEditingId(null);
+              setFormData({ first_name: '', last_name: '', email: '', is_active: true, role_id: '' });
+              setOpenDialog(true);
+            }}
+          >
+            Add User
+          </Button>
+        </Box>
       </Box>
 
-      <TableContainer component={Paper} elevation={2} sx={{ borderRadius: 2 }}>
+      <DraggableTableContainer component={Paper} elevation={2} sx={{ borderRadius: 2 }}>
         <Table>
           <TableHead sx={{ backgroundColor: 'background.default' }}>
             <TableRow>
@@ -162,10 +206,24 @@ export default function UsersPage() {
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </DraggableTableContainer>
+
+      <TablePagination
+        rowsPerPageOptions={[10, 25, 50, 100]}
+        component="div"
+        count={totalUsers}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(_, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+        labelRowsPerPage="แสดงต่อหน้า (Rows per page):"
+      />
 
       <Dialog open={openDialog} onClose={() => !saving && setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit User</DialogTitle>
+        <DialogTitle>{editingId ? 'Edit User' : 'Add User'}</DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <TextField 
